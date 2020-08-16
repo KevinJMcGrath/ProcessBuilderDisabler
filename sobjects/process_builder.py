@@ -14,18 +14,34 @@ contact_pb_dict = {
     'Turn_on_underlying_MCO_Corporate_Global_AS_fields': 2
 }
 
-def toggle_processes(activate: bool=False):
+opp_pb_dict = {
+    #'Delete_Content_of_Opportunity_field_in_Contact_if_Contact_Role_is_Deleted': None,
+    'Assign_primary_contact': 3,
+    'Opp_Stage_Date_Stamps': 3,
+    'Update_Opportunity_Intacct_Entity': 1,
+    'Deal_Source': 6,
+    'Opportunity_Account_Manager_for_Won_Upsell_Opps': 4
+
+}
+
+def toggle_processes(activate: bool=False, sobject: str='Contact'):
     pb_map = sfdc_clients.simple_client.get_all_pb_processes()
 
     for pb_id, pb in pb_map.items():
         pb_id = pb['Id']
         pb_name = pb['DeveloperName']
 
-        if pb_name in contact_pb_dict.keys():
+
+        working_dict = contact_pb_dict
+
+        if sobject == 'Opportunity':
+            working_dict = opp_pb_dict
+
+        if pb_name in working_dict.keys():
             active_version = None
 
             if activate:
-                active_version = contact_pb_dict[pb_name]
+                active_version = working_dict[pb_name]
 
             print(f'{"Activating" if activate else "Deactivating"} process {pb_name}')
             sfdc_clients.simple_client.toggle_pb_process(pb_id, active_version)

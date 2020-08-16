@@ -1,12 +1,37 @@
 import time
 
 import sfdc_clients
+import utility
+
+# RenewalCreditDateUpdate
+# IF(CloseDate >= Effective_Date__c, CloseDate, Effective_Date__c)
+
+# CommissionCreditUpdate
+# CASE(Type,
+# 'Up Sell (deferred)', Amount,
+# 'Paid Trial', Amount,
+# 'Renewal', IF(Contract_Length_Months__c < 24, 0, ASV__c),
+# 'Renewal (full term)', IF(Contract_Length_Months__c < 24, 0, ASV__c),
+# 'Renewal (contract/email required)', IF(Contract_Length_Months__c < 24, 0, ASV__c),
+# 'New Business', IF(Contract_Length_Months__c < 12, Amount, ASV__c),
+# 'Up Sell', IF(Contract_Length_Months__c < 12, Amount, ASV__c),
+# 'Sales Credit Only', IF(Contract_Length_Months__c < 12, Amount, ASV__c),
+# 0)
+
+# QuotaCreditUpdate
+# CASE(Type,
+# 'New Business', IF(Pay_As_You_Go__c, Amount, ASV__c),
+# 'Up Sell', IF(Pay_As_You_Go__c, Amount, ASV__c),
+# 'Sales Credit Only', IF(Pay_As_You_Go__c, Amount, ASV__c),
+# 'Increase', IF(Pay_As_You_Go__c, Amount, ASV__c),
+# 0)
 
 def update_opp_amounts():
-    soql = "SELECT Id, Amount FROM Opportunity " \
-           "WHERE Quota_Credit__c = NULL AND Confirm_Win__c = True " \
-           "AND StageName IN ('Closed Won', 'Renewal - Won', 'Renewal - Lost') " \
-           "AND (CloseDate >= 2020-01-01 OR Effective_Date__c >= 2020-01-01)"
+    soql = "SELECT Id, Type, Amount, ASV__c, CloseDate, Pay_As_You_Go__c, Effective_Date__c, Contract_Length_Months__c" \
+           " FROM Opportunity " \
+           " WHERE Quota_Credit__c = NULL AND Confirm_Win__c = True " \
+           " AND StageName IN ('Closed Won', 'Renewal - Won', 'Renewal - Lost') " \
+           " AND (CloseDate >= 2020-01-01 OR Effective_Date__c >= 2020-01-01)"
 
     opps = sfdc_clients.simple_client.execute_query(soql)['records']
 
@@ -14,32 +39,70 @@ def update_opp_amounts():
 
     for o in opps:
         payload = {
-            "Id": o['Id'],
-            "Amount": o['Amount'] + 0.01
+            "Id": o['Id']
         }
+
+
+        opp_type = o['Type']
+        close_date = utility.convert_sfdc_datetime_to_datetime(o['CloseDate'])
+        eff_date = utility.convert_sfdc_datetime_to_datetime(o['Effective_Date__c'])
+        amt = o['Amount']
+        asv = o['ASV__c']
+        paygo = o['Pay_As_You_Go__c']
+
+        # RenewalCreditDateUpdate
+        if close_date >= eff_date:
+            payload['Renewal_Credit_Date__c'] = o['CloseDate']
+        else:
+            payload['Renewal_Credit_Date__c'] = o['Effective_Date__c']
+
+        # CommissionCreditUpdate
+        if opp_type in ['Up Sell (deferred)', 'Paid Trial']:
+            payload['Commission_Credit__c'] = amt
+        elif opp_type in ['Renewal', 'Renewal (full term)', 'Renewal (contract/email required)']:
+            if o['Contract_Length_Months__c'] < 24:
+                payload['Commission_Credit__c'] = 0
+            else:
+                payload['Commission_Credit__c'] = o['ASV__c']
+        elif opp_type in ['New Business', 'Up Sell', 'Sales Credit Only']:
+            if o['Contract_Length_Months__c'] < 12:
+                payload['Commission_Credit__c'] = amt
+            else:
+                payload['Commission_Credit__c'] = asv
+
+        # QuotaCreditUpdate
+        if opp_type in ['New Business', 'Up Sell', 'Sales Credit Only', 'Increase']:
+            if paygo:
+                payload['Quota_Credit__c'] = amt
+            else:
+                payload['Quota_Credit__c'] = asv
 
         opps_for_update.append(payload)
 
-    print('Updating all opps (adding $0.01)...')
-    job_id = sfdc_clients.bulk_client.send_bulk_update('Opportunity', opps_for_update)
+    print('Updating all opps...')
+    sfdc_clients.bulk_client.send_bulk_update('Opportunity', opps_for_update)
 
-    while not sfdc_clients.bulk_client.check_bulk_job_complete(job_id):
-        time.sleep(5)
+    print('Done!')
 
-    print('Updating all opps (restoring original value)')
-    opps_for_update.clear()
+
+
+def revert_opp_amounts():
+    soql = "SELECT Id, Amount, ASV__c FROM Opportunity " \
+           "WHERE LastModifiedDate >= 2020-08-14T07:00:00-04:00 AND LastModifiedById = '0053g0000016qBw'"
+
+    opps = sfdc_clients.simple_client.execute_query(soql)['records']
+
+    opps_for_update = []
 
     for o in opps:
-        payload = {
-            "Id": o['Id'],
-            "Amount": o['Amount']
-        }
+        if o['Amount'] == o['ASV__c'] + 0.01:
+            payload = {
+                "Id": o['Id'],
+                "Amount": o['ASV__c']
+            }
 
-        opps_for_update.append(o)
+            opps_for_update.append(payload)
 
-    job_id = sfdc_clients.bulk_client.send_bulk_update('Opportunity', opps_for_update)
-
-    while not sfdc_clients.bulk_client.check_bulk_job_complete(job_id):
-        time.sleep(5)
+    sfdc_clients.bulk_client.send_bulk_update('Opportunity', opps_for_update)
 
     print('Done!')

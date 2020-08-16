@@ -1,5 +1,6 @@
 import jsonpickle
 import requests
+import time
 
 # http://www.wadewegner.com/2014/04/update-records-with-python-and-the-salesforce-bulk-api/
 class SFBulkCustomClient:
@@ -70,7 +71,11 @@ class SFBulkCustomClient:
         print('Closing batch job...')
         self.close_job_json(job_id)
 
-        return job_id
+        print('Polling for job status...')
+        while not self.check_bulk_job_complete(job_id):
+            time.sleep(5)
+
+        print('Job complete.')
 
     def check_bulk_job_complete(self, job_id: str):
         url = f"{self.bulk_url}job/{job_id}/batch"
@@ -79,6 +84,10 @@ class SFBulkCustomClient:
 
         is_complete = True
         for batch in resp['batchInfo']:
+            if 'Fail' in batch['state']:
+                print('Failure detected. Check logs...')
+                return True
+
             print(f"batch id: {batch['id']} - state: {batch['state']} - "
                          f"records processed: {batch['numberRecordsProcessed']} - "
                          f"records failed: {batch['numberRecordsFailed']}")
