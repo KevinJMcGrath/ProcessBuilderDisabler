@@ -74,6 +74,20 @@ def update_contacts_pw_last_changed():
     sfdc_clients.bulk_client.send_bulk_update('Contact', contacts_for_update)
 
 
+def update_contacts_usage_limits():
+    contact_list = sfdc_clients.simple_client.get_contacts()
+
+    contacts_for_update = []
+
+    for c in contact_list:
+        payload = {
+            "Id": c['Id'],
+            "Annual_AMR_Page_Limit__c": 5000
+        }
+
+        contacts_for_update.append(payload)
+
+    sfdc_clients.bulk_client.send_bulk_update('Contact', contacts_for_update)
 
 
 def export_pw_last_changed():
@@ -102,5 +116,58 @@ def export_pw_last_changed():
                 print(f'Writing row {index}')
                 writer.writerow(row, )
                 index += 1
+
+    print('Done!')
+
+def add_links_all_contacts():
+    print('Loading all contacts...')
+    contact_list = sfdc_clients.simple_client.get_contacts()
+
+    print(f"Loaded {len(contact_list)} Contacts")
+    acct_cnt_dict = {}
+
+    print(f"Loading existing Account-Lead-Link records...")
+    soql = "SELECT Id, Domain__c, Account__c FROM Account_Lead_Link__c"
+
+    response = sfdc_clients.simple_client.execute_query(soql)
+    existing_all_account_ids = { r['Account__c'] for r in response['records'] }
+
+    skipped_contact = 0
+    print('Extracting unique domains...')
+    for c in contact_list:
+        acct_id = c['AccountId']
+
+        if not acct_id:
+            continue
+
+        if acct_id in existing_all_account_ids:
+            skipped_contact += 1
+            continue
+
+        email: str = c['Email']
+        domain = email.split('@')[1]
+
+        if acct_id in acct_cnt_dict:
+            cnt_domains: set = acct_cnt_dict.get(acct_id)
+            cnt_domains.add(domain)
+        else:
+            acct_cnt_dict[acct_id] = {domain}  # set literal
+
+    print('Creating Account-Lead-Links...')
+    all_for_insert = []
+    for acct_id, domain_list in acct_cnt_dict.items():
+        for domain in domain_list:
+            all = {
+                "Account__c": acct_id,
+                "Domain__c": domain
+            }
+
+            all_for_insert.append(all)
+
+    print(f"Skipped {skipped_contact} Contacts belonging to Accounts with existing ALL records")
+
+    print(f'Inserting {len(all_for_insert)} Account_Lead_Link__c records...')
+
+    sfdc_clients.bulk_client.send_bulk_insert('Account_Lead_Link__c', all_for_insert)
 
     print('Done!')

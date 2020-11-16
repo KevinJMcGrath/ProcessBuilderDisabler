@@ -26,7 +26,8 @@ import utility
 # 'Increase', IF(Pay_As_You_Go__c, Amount, ASV__c),
 # 0)
 
-def update_opp_amounts():
+def update_opp_amounts(update_renewal_credit: bool=False, update_comm_credit: bool=False,
+                       update_quota_credit: bool=False):
     soql = "SELECT Id, Type, Amount, ASV__c, CloseDate, Pay_As_You_Go__c, Effective_Date__c, Contract_Length_Months__c" \
            " FROM Opportunity " \
            " WHERE Quota_Credit__c = NULL AND Confirm_Win__c = True " \
@@ -50,36 +51,41 @@ def update_opp_amounts():
         asv = o['ASV__c']
         paygo = o['Pay_As_You_Go__c']
 
-        # RenewalCreditDateUpdate
-        if close_date >= eff_date:
-            payload['Renewal_Credit_Date__c'] = o['CloseDate']
-        else:
-            payload['Renewal_Credit_Date__c'] = o['Effective_Date__c']
-
-        # CommissionCreditUpdate
-        if opp_type in ['Up Sell (deferred)', 'Paid Trial']:
-            payload['Commission_Credit__c'] = amt
-        elif opp_type in ['Renewal', 'Renewal (full term)', 'Renewal (contract/email required)']:
-            if o['Contract_Length_Months__c'] < 24:
-                payload['Commission_Credit__c'] = 0
+        if update_renewal_credit:
+            # RenewalCreditDateUpdate
+            if close_date >= eff_date:
+                payload['Renewal_Credit_Date__c'] = o['CloseDate']
             else:
-                payload['Commission_Credit__c'] = o['ASV__c']
-        elif opp_type in ['New Business', 'Up Sell', 'Sales Credit Only']:
-            if o['Contract_Length_Months__c'] < 12:
-                payload['Commission_Credit__c'] = amt
-            else:
-                payload['Commission_Credit__c'] = asv
+                payload['Renewal_Credit_Date__c'] = o['Effective_Date__c']
 
-        # QuotaCreditUpdate
-        if opp_type in ['New Business', 'Up Sell', 'Sales Credit Only', 'Increase']:
+        if update_comm_credit:
+            # CommissionCreditUpdate
             if paygo:
-                payload['Quota_Credit__c'] = amt
-            else:
-                payload['Quota_Credit__c'] = asv
+                payload['Commission_Credit__c'] = asv
+            elif opp_type in ['Up Sell (deferred)', 'Paid Trial']:
+                payload['Commission_Credit__c'] = amt
+            elif opp_type in ['Renewal', 'Renewal (full term)', 'Renewal (contract/email required)']:
+                if o['Contract_Length_Months__c'] < 24:
+                    payload['Commission_Credit__c'] = 0
+                else:
+                    payload['Commission_Credit__c'] = o['ASV__c']
+            elif opp_type in ['New Business', 'Up Sell', 'Sales Credit Only', 'Increase']:
+                if o['Contract_Length_Months__c'] < 12:
+                    payload['Commission_Credit__c'] = amt
+                else:
+                    payload['Commission_Credit__c'] = asv
+
+        if update_quota_credit:
+            # QuotaCreditUpdate
+            if opp_type in ['New Business', 'Up Sell', 'Sales Credit Only', 'Increase']:
+                if paygo:
+                    payload['Quota_Credit__c'] = amt
+                else:
+                    payload['Quota_Credit__c'] = asv
 
         opps_for_update.append(payload)
 
-    print('Updating all opps...')
+    print(f'Updating all opps({len(opps_for_update)})...')
     sfdc_clients.bulk_client.send_bulk_update('Opportunity', opps_for_update)
 
     print('Done!')

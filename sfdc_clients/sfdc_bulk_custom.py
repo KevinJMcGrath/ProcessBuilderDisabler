@@ -51,8 +51,14 @@ class SFBulkCustomClient:
         response = self.submit(url, jsonpickle.encode(payload))
 
     def send_bulk_update(self, sobject_type: str, sobj_for_update: list):
+        self.send_bulk_operation('update', sobject_type, sobj_for_update)
+
+    def send_bulk_insert(self, sobject_type: str, sobj_for_insert: list):
+        self.send_bulk_operation('insert', sobject_type, sobj_for_insert)
+
+    def send_bulk_operation(self, operation_type: str, sobject_type: str, sobj_for_update: list):
         # create the batch job
-        job_id = self.create_job_json('update', sobject_type)
+        job_id = self.create_job_json(operation_type, sobject_type)
 
         # add batches to the job
         group_count, remainder = divmod(len(sobj_for_update), self.batch_record_limit)

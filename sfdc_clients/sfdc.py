@@ -59,9 +59,11 @@ class SFClient:
         return accts
 
     def get_contacts(self, limit: int=0):
-        soql = "SELECT Id, CreatedDate, PW_Last_Changed__c, (SELECT CreatedDate FROM Histories WHERE Field = 'Password__c' " \
-               "ORDER BY CreatedDate DESC LIMIT 1) FROM Contact WHERE Password__c != null " \
-               "AND PW_Last_Changed__c = null AND Status_of_User__c IN ('Active', 'Trial')"
+        #soql = "SELECT Id, CreatedDate, PW_Last_Changed__c, (SELECT CreatedDate FROM Histories WHERE Field = 'Password__c' " \
+               #"ORDER BY CreatedDate DESC LIMIT 1) FROM Contact WHERE Password__c != null " \
+               # "AND PW_Last_Changed__c = null AND Status_of_User__c IN ('Active', 'Trial')"
+
+        soql = "SELECT Id, AccountId, Email FROM Contact WHERE Email != null"
 
         if limit > 0:
             soql += f" LIMIT {limit}"
