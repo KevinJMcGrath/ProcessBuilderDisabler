@@ -1,4 +1,135 @@
+import csv
+
 import sfdc_clients
+
+from pathlib import Path
+
+def update_contact_fix_BQ():
+    payload = {
+          "Id": "0030d00002EN0JXAA1",
+          "Apex_Bypass_Toggle__c": False,
+          "AS_BQ_Last_Updated__c": "2021-03-08T08:14:15Z",
+          "AS_Active_Days_7d__c": 0,
+          "AS_Active_Days_28d__c": 0,
+          "AS_Active_Days_90d__c": 0,
+          "AS_Documents_Read__c": 0,
+          "AS_Documents_Read_7d__c": None,
+          "AS_Documents_Read_28d__c": None,
+          "AS_Watchlists_Created__c": 0,
+          "AS_Watchlists_Deleted__c": 0,
+          "AS_Watchlists_Modified__c": 0,
+          "AS_Watchlist_Searches_7d__c": 0,
+          "AS_Watchlist_Searches_28d__c": 0,
+          "AS_Net_Watchlists_Created__c": 0,
+          "AS_Alerts_Created__c": 0,
+          "AS_Alerts_Deleted__c": 0,
+          "AS_Active_Alerts_Subscribed__c": 0,
+          "AS_Alerts_Subscribed_7d__c": 0,
+          "AS_Alerts_Subscribed_28d__c": 0,
+          "AS_Table_Export__c": 0,
+          "AS_Table_Export_Any_Event__c": 0,
+          "FactSet_AMR_Doc_Read_2d__c": 0,
+          "FactSet_AMR_Doc_Read_7d__c": 0,
+          "FactSet_AMR_Doc_Read_30d__c": 0,
+          "FactSet_AMR_Doc_Read_90d__c": 0,
+          "FactSet_AMR_Doc_Read_365d__c": 0,
+          "Factset_AMR_Doc_Purchase_2d__c": 0,
+          "Factset_AMR_Doc_Purchase_7d__c": 0,
+          "Factset_AMR_Doc_Purchase_30d__c": 0,
+          "Factset_AMR_Doc_Purchase_90d__c": 0,
+          "Factset_AMR_Doc_Purchase_365d__c": 0,
+          "FactSet_AMR_Pages_Read_2d__c": 0,
+          "FactSet_AMR_Pages_Read_7d__c": 0,
+          "FactSet_AMR_Pages_Read_30d__c": 0,
+          "FactSet_AMR_Pages_Read_90d__c": 0,
+          "FactSet_AMR_Pages_Read_365d__c": 0,
+          "Factset_AMR_Page_Purchase_2d__c": 0,
+          "Factset_AMR_Page_Purchase_7d__c": 0,
+          "Factset_AMR_Page_Purchase_30d__c": 0,
+          "Factset_AMR_Page_Purchase_90d__c": 0,
+          "Factset_AMR_Page_Purchase_365d__c": 0,
+          "FactSet_AMR_Pages_Consumed_2d__c": 0,
+          "FactSet_AMR_Pages_Consumed_7d__c": 0,
+          "FactSet_AMR_Pages_Consumed_30d__c": 0,
+          "FactSet_AMR_Pages_Consumed_90d__c": 0,
+          "FactSet_AMR_Pages_Consumed_365d__c": 0,
+          "Direct_Broker_Pages_Read_2d__c": 0,
+          "Direct_Broker_Pages_Read_7d__c": 0,
+          "Direct_Broker_Pages_Read_30d__c": 0,
+          "Direct_Broker_Pages_Read_90d__c": 0,
+          "Direct_Broker_Pages_Read_365d__c": 0,
+          "Direct_Broker_Page_Purchase_2d__c": 0,
+          "Direct_Broker_Page_Purchase_7d__c": 0,
+          "Direct_Broker_Page_Purchase_30d__c": 0,
+          "Direct_Broker_Page_Purchase_90d__c": 0,
+          "Direct_Broker_Page_Purchase_365d__c": 0,
+          "Direct_Broker_Pages_Consumed_2d__c": 0,
+          "Direct_Broker_Pages_Consumed_7d__c": 0,
+          "Direct_Broker_Pages_Consumed_30d__c": 0,
+          "Direct_Broker_Pages_Consumed_90d__c": 0,
+          "Direct_Broker_Pages_Consumed_365d__c": 0,
+          "AS_Total_iPhone_Sessions__c": 0,
+          "AS_iPhone_App_Sessions_7d__c": 0,
+          "AS_iPhone_App_Sessions_28d__c": 0,
+          "AS_Last_Activity__c": "2021-03-08T08:14:15Z",
+          "Last_Login__c": "2018-02-22"
+        }
+
+    payload_list = [payload]
+
+    sfdc_clients.bulk_client.send_bulk_update('Contact', payload_list)
+
+def update_contact_roles_e_y():
+    csv_path = Path('C:\\Users\\Kevin\\Downloads\\Parthenon - convert active users.csv')
+
+    opp_id = '0063g000005VSHt'
+    ocr_role = 'Paying User'
+
+    ocr_for_insert = []
+    ocr_for_update = []
+
+    contact_ids = []
+    with open(csv_path, 'r') as csv_file:
+        reader = csv.reader(csv_file)
+
+        for row in reader:
+            contact_ids.append(row[1])
+
+    soql = f"SELECT Id, ContactId, Role FROM OpportunityContactRole WHERE OpportunityId = '{opp_id}'"
+
+    ocr_list = sfdc_clients.simple_client.execute_query(soql)['records']
+
+    ocr_existing_map = {o['ContactId']: (o['Id'], o['Role'])  for o in ocr_list}
+
+    for key, value in ocr_existing_map.items():
+        ocr_id = value[0]
+        payload = {
+            "Id": ocr_id,
+            "Role": ocr_role
+        }
+
+        ocr_for_update.append(payload)
+
+    for contact_id in contact_ids:
+        if contact_id in ocr_existing_map:
+            # if the OCRole is already on the Opp, just skip
+            continue
+        else:
+            payload = {
+                "ContactId": contact_id,
+                "OpportunityId": opp_id,
+                "Role": ocr_role
+            }
+
+            ocr_for_insert.append(payload)
+
+    # sfdc_clients.bulk_client.send_bulk_update('OpportunityContactRole', ocr_for_update)
+
+    sfdc_clients.bulk_client.send_bulk_insert('OpportunityContactRole', ocr_for_insert)
+
+
+
+
 
 def update_channel_view_as():
     soql = "SELECT Id, Channel_View__c " \

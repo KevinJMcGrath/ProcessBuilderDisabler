@@ -73,6 +73,7 @@ def insert_new_splits():
 if __name__ == '__main__':
     # deactivate_processes('Contact')
     # lead.match_all_leads()
-    activate_processes('Contact')
+    contact.update_contact_roles_e_y()
+    #activate_processes('Contact')
 
 

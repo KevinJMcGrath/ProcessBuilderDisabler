@@ -10,6 +10,8 @@ class SFClient:
         self.client = Salesforce(username=username, password=password, security_token=sec_token)
         self.batch_size_limit = 2000
 
+        self.client.session_id
+
     @staticmethod
     def from_config():
         return SFClient(config.Salesforce.username, config.Salesforce.password, config.Salesforce.security_token)

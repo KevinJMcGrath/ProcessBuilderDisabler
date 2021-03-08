@@ -7,7 +7,7 @@ contact_pb_dict = {
     'Corp_Investor_Relations_PositionId_Update': 2,
     'MCO_Financial_Inst_Global_AS_TRUE': 2,
     'MCO_Fundamental_Global_AS_TRUE': 2,
-    'Stamp_MQL_Final_DateTime_Contacts': 2,
+    # 'Stamp_MQL_Final_DateTime_Contacts': 2,
     'Set_up_trial_config': 9,
     # 'Turn_of_direct_broker_feed': 2,
     'Turn_on_Moody_s_Credit_Research_Capital_Markets': 2,
