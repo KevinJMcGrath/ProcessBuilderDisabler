@@ -60,19 +60,22 @@ class SFBulkCustomClient:
         # create the batch job
         job_id = self.create_job_json(operation_type, sobject_type)
 
-        # add batches to the job
-        group_count, remainder = divmod(len(sobj_for_update), self.batch_record_limit)
-        # group_count = 3
+        if len(sobj_for_update) < self.batch_record_limit:
+            self.add_batch_json(job_id, sobj_for_update)
+        else:
+            # add batches to the job
+            group_count, remainder = divmod(len(sobj_for_update), self.batch_record_limit)
+            # group_count = 3
 
-        for i in range(0, group_count + 1):
-            start = self.batch_record_limit * i
-            end = self.batch_record_limit * (i + 1) - 1
+            for i in range(0, group_count + 1):
+                start = self.batch_record_limit * i
+                end = self.batch_record_limit * (i + 1) - 1
 
-            if end >= len(sobj_for_update):
-                end = len(sobj_for_update) - 1
+                if end >= len(sobj_for_update):
+                    end = len(sobj_for_update) - 1
 
-            print(f'Sending Contact batch {i + 1} - updating rows {start} to {end}')
-            self.add_batch_json(job_id, sobj_for_update[start:end])
+                print(f'Sending Contact batch {i + 1} - updating rows {start} to {end}')
+                self.add_batch_json(job_id, sobj_for_update[start:end])
 
         print('Closing batch job...')
         self.close_job_json(job_id)

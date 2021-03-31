@@ -1,83 +1,70 @@
 import csv
+import jsonpickle
 
 import sfdc_clients
 
 from pathlib import Path
 
-def update_contact_fix_BQ():
-    payload = {
-          "Id": "0030d00002EN0JXAA1",
-          "Apex_Bypass_Toggle__c": False,
-          "AS_BQ_Last_Updated__c": "2021-03-08T08:14:15Z",
-          "AS_Active_Days_7d__c": 0,
-          "AS_Active_Days_28d__c": 0,
-          "AS_Active_Days_90d__c": 0,
-          "AS_Documents_Read__c": 0,
-          "AS_Documents_Read_7d__c": None,
-          "AS_Documents_Read_28d__c": None,
-          "AS_Watchlists_Created__c": 0,
-          "AS_Watchlists_Deleted__c": 0,
-          "AS_Watchlists_Modified__c": 0,
-          "AS_Watchlist_Searches_7d__c": 0,
-          "AS_Watchlist_Searches_28d__c": 0,
-          "AS_Net_Watchlists_Created__c": 0,
-          "AS_Alerts_Created__c": 0,
-          "AS_Alerts_Deleted__c": 0,
-          "AS_Active_Alerts_Subscribed__c": 0,
-          "AS_Alerts_Subscribed_7d__c": 0,
-          "AS_Alerts_Subscribed_28d__c": 0,
-          "AS_Table_Export__c": 0,
-          "AS_Table_Export_Any_Event__c": 0,
-          "FactSet_AMR_Doc_Read_2d__c": 0,
-          "FactSet_AMR_Doc_Read_7d__c": 0,
-          "FactSet_AMR_Doc_Read_30d__c": 0,
-          "FactSet_AMR_Doc_Read_90d__c": 0,
-          "FactSet_AMR_Doc_Read_365d__c": 0,
-          "Factset_AMR_Doc_Purchase_2d__c": 0,
-          "Factset_AMR_Doc_Purchase_7d__c": 0,
-          "Factset_AMR_Doc_Purchase_30d__c": 0,
-          "Factset_AMR_Doc_Purchase_90d__c": 0,
-          "Factset_AMR_Doc_Purchase_365d__c": 0,
-          "FactSet_AMR_Pages_Read_2d__c": 0,
-          "FactSet_AMR_Pages_Read_7d__c": 0,
-          "FactSet_AMR_Pages_Read_30d__c": 0,
-          "FactSet_AMR_Pages_Read_90d__c": 0,
-          "FactSet_AMR_Pages_Read_365d__c": 0,
-          "Factset_AMR_Page_Purchase_2d__c": 0,
-          "Factset_AMR_Page_Purchase_7d__c": 0,
-          "Factset_AMR_Page_Purchase_30d__c": 0,
-          "Factset_AMR_Page_Purchase_90d__c": 0,
-          "Factset_AMR_Page_Purchase_365d__c": 0,
-          "FactSet_AMR_Pages_Consumed_2d__c": 0,
-          "FactSet_AMR_Pages_Consumed_7d__c": 0,
-          "FactSet_AMR_Pages_Consumed_30d__c": 0,
-          "FactSet_AMR_Pages_Consumed_90d__c": 0,
-          "FactSet_AMR_Pages_Consumed_365d__c": 0,
-          "Direct_Broker_Pages_Read_2d__c": 0,
-          "Direct_Broker_Pages_Read_7d__c": 0,
-          "Direct_Broker_Pages_Read_30d__c": 0,
-          "Direct_Broker_Pages_Read_90d__c": 0,
-          "Direct_Broker_Pages_Read_365d__c": 0,
-          "Direct_Broker_Page_Purchase_2d__c": 0,
-          "Direct_Broker_Page_Purchase_7d__c": 0,
-          "Direct_Broker_Page_Purchase_30d__c": 0,
-          "Direct_Broker_Page_Purchase_90d__c": 0,
-          "Direct_Broker_Page_Purchase_365d__c": 0,
-          "Direct_Broker_Pages_Consumed_2d__c": 0,
-          "Direct_Broker_Pages_Consumed_7d__c": 0,
-          "Direct_Broker_Pages_Consumed_30d__c": 0,
-          "Direct_Broker_Pages_Consumed_90d__c": 0,
-          "Direct_Broker_Pages_Consumed_365d__c": 0,
-          "AS_Total_iPhone_Sessions__c": 0,
-          "AS_iPhone_App_Sessions_7d__c": 0,
-          "AS_iPhone_App_Sessions_28d__c": 0,
-          "AS_Last_Activity__c": "2021-03-08T08:14:15Z",
-          "Last_Login__c": "2018-02-22"
+def update_contact_wsi():
+    soql_cnt = "SELECT Id, WSI_Content_Pool__c FROM Contact WHERE WSI_Content_Pool__c != null"
+    soql_history = "SELECT ContactId FROM ContactHistory WHERE Field = 'WSI_Content_Pool__c'"
+
+    cnt_ids_by_history = set()
+    contacts_missing_wsi_update = {}
+
+    print('Downloading contact histories')
+    histories = sfdc_clients.simple_client.execute_query(soql_history)['records']
+
+    print('Downloading Contacts')
+    contacts = sfdc_clients.simple_client.execute_query(soql_cnt)['records']
+
+    for h in histories:
+        cnt_ids_by_history.add(h['ContactId'])
+
+    for c in contacts:
+        if c['Id'] not in cnt_ids_by_history:
+            contacts_missing_wsi_update[c['Id']] = c['WSI_Content_Pool__c']
+
+    payload_delete_list = []
+    payload_activate_list = []
+    print('Matching contacts to histories')
+    for k, v in contacts_missing_wsi_update.items():
+        payload_d = {
+            "Id": k,
+            "WSI_Content_Pool__c": None
         }
 
-    payload_list = [payload]
+        payload_delete_list.append(payload_d)
 
-    sfdc_clients.bulk_client.send_bulk_update('Contact', payload_list)
+        payload_a = {
+            "Id": k,
+            "WSI_Content_Pool__c": v
+        }
+
+        payload_activate_list.append(payload_a)
+
+    delete_json = jsonpickle.encode(payload_delete_list)
+    activate_json = jsonpickle.encode(payload_activate_list)
+    sfdc_clients.bulk_client.send_bulk_update('Contact', payload_delete_list)
+    sfdc_clients.bulk_client.send_bulk_update('Contact', payload_activate_list)
+
+
+def update_contact_fix_BQ():
+    json_path = Path('data/sfdc-batch-14.json')
+
+    with open(json_path, 'r') as json_file:
+        payload_list = jsonpickle.decode(json_file.read())
+
+    payload_send = []
+
+    p = payload_list[0]
+    # p['AS_Documents_Read_7d__c'] = 0
+    # p['AS_Documents_Read_28d__c'] = 0
+    del p['Last_Login__c']
+
+    payload_send.append(p)
+
+    sfdc_clients.bulk_client.send_bulk_update('Contact', payload_send)
 
 def update_contact_roles_e_y():
     csv_path = Path('C:\\Users\\Kevin\\Downloads\\Parthenon - convert active users.csv')

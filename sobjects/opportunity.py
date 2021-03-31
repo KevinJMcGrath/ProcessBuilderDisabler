@@ -26,6 +26,42 @@ import utility
 # 'Increase', IF(Pay_As_You_Go__c, Amount, ASV__c),
 # 0)
 
+def dedupe_opp_contact_roles():
+    soql = "SELECT Id, ContactId, Contact.Email FROM OpportunityContactRole WHERE OpportunityId = '0063g000005VSHt'"
+
+    ocr_list = sfdc_clients.simple_client.execute_query(soql)['records']
+
+    ocr_to_keep = {}
+    ocr_for_delete = []
+
+    print(f'Opportunity currently has {len(ocr_list)} Contact Role records')
+
+    for ocr in ocr_list:
+        id = ocr['Id']
+        contact_id = ocr['ContactId']
+        contact_email = ocr['Contact']['Email']
+
+        if contact_id not in ocr_to_keep:
+            ocr_to_keep[contact_id] = ocr
+        else:
+            payload = {
+                "Id": ocr['Id']
+            }
+            ocr_for_delete.append(payload)
+            print(f'Found duplicate OCR for Contact {contact_email}')
+
+
+    print(f'Preparing to delete {len(ocr_for_delete)} Opportunity Contact Roles')
+
+    #confirm = input('Proceed? y/n')
+
+    #if confirm:
+    sfdc_clients.simple_client.client.bulk.OpportunityContactRole.delete(ocr_for_delete)
+
+    print('Done!')
+
+
+
 def update_opp_amounts(update_renewal_credit: bool=False, update_comm_credit: bool=False,
                        update_quota_credit: bool=False):
     soql = "SELECT Id, Type, Amount, ASV__c, CloseDate, Pay_As_You_Go__c, Effective_Date__c, Contract_Length_Months__c" \
