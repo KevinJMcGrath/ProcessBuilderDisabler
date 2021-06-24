@@ -6,6 +6,8 @@ import sobjects.contact as contact
 import sobjects.lead as lead
 import sobjects.opportunity as opp
 import sobjects.opp_split as opp_split
+import sobjects.campaign_member as cm
+import sobjects.wsi_user_detail as wsi_ud
 
 import sobjects.admin as admin
 import sobjects.process_builder as pb
@@ -46,6 +48,9 @@ def export_pw_last_changed():
 def update_contact_usage_limits():
     contact.update_contacts_usage_limits()
 
+def update_contact_alert_template():
+    contact.update_contact_alert_new_template()
+
 # **************************************
 #               Account
 # **************************************
@@ -70,10 +75,39 @@ def revert_opp_amounts_trigger_custom_fields():
 def insert_new_splits():
     opp_split.fix_2020_opp_splits()
 
+
+# **************************************
+#           Campaign Members
+# **************************************
+
+def del_campaign_members():
+    path = "C:\\Users\\Kevin\\Dropbox\\Work\\AlphaSense\\Documents\\2021\\CampaignMembersForPurge-20210524.csv"
+
+    cm.delete_campaign_members_by_csv(path)
+
+
+# **************************************
+#           WSI User Detail
+# **************************************
+
+def update_user_detail_prior_month():
+    wsi_ud.populate_prior_month()
+
+
+def update_user_detail_current_month():
+    wsi_ud.update_current_month()
+
+
+def delete_dupe_histories():
+    wsi_ud.remove_duplicate_history_records()
+
 if __name__ == '__main__':
-    # deactivate_processes('Contact')
-    # contact.update_contact_wsi()
-    opp.dedupe_opp_contact_roles()
-    # activate_processes('Contact')
+    deactivate_processes('Contact')
+    # deactivate_processes('Opportunity')
+
+    update_contact_alert_template()
+
+    activate_processes('Contact')
+    # activate_processes('Opportunity')
 
 

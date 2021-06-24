@@ -75,7 +75,9 @@ class SFBulkCustomClient:
                     end = len(sobj_for_update) - 1
 
                 print(f'Sending Contact batch {i + 1} - updating rows {start} to {end}')
-                self.add_batch_json(job_id, sobj_for_update[start:end])
+
+                # Updated to be end + 1 because Python slices are half open intervals: [a, b)
+                self.add_batch_json(job_id, sobj_for_update[start:(end + 1)])
 
         print('Closing batch job...')
         self.close_job_json(job_id)

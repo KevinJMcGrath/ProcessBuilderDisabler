@@ -5,6 +5,29 @@ import sfdc_clients
 
 from pathlib import Path
 
+def update_contact_alert_new_template():
+    soql = "SELECT Id, Alert_New_Template_AS__c FROM Contact WHERE Alert_New_Template_AS__c = false AND Id != '0030d00002Ip1Qa'"
+
+    print('Querying for Contacts...')
+    contacts = sfdc_clients.simple_client.execute_query(soql)['records']
+
+    print(f'Contact Count: {len(contacts)}')
+
+    update_list = []
+    for c in contacts:
+        payload = {
+            'Id': c['Id'],
+            'Alert_New_Template_AS__c': True
+        }
+
+        update_list.append(payload)
+
+
+    print('Submitting Update...')
+    sfdc_clients.bulk_client.send_bulk_update('Contact', update_list)
+
+    print('Done!')
+
 def update_contact_wsi():
     soql_cnt = "SELECT Id, WSI_Content_Pool__c FROM Contact WHERE WSI_Content_Pool__c != null"
     soql_history = "SELECT ContactId FROM ContactHistory WHERE Field = 'WSI_Content_Pool__c'"
