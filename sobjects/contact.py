@@ -5,6 +5,109 @@ import sfdc_clients
 
 from pathlib import Path
 
+def check_inactive_users_as():
+    soql = "SELECT Email FROM User WHERE IsActive = false"
+
+    print('Loading Inactive Users...')
+    users = sfdc_clients.simple_client.execute_query(soql)['records']
+
+    user_emails = [f"\'{u['Email']}\'" for u in users]
+
+    soql = "SELECT Id, Username__c, Status_of_User__c FROM Contact WHERE Username__c IN ("
+    soql += ','.join(user_emails) + ')'
+
+    print('Loading Contacts...')
+    contacts = sfdc_clients.simple_client.execute_query(soql)['records']
+
+    for c in contacts:
+        if c['Status_of_User__c'] != 'Inactive':
+            print(f"User {c['Username__c']} reports status {c['Status_of_User__c']}")
+
+    print('Done!')
+
+
+def disable_specific_contacts_as():
+    email_list = ['\'agonzalez@alpha-sense.com\'',
+        '\'arose@alpha-sense.com\'',
+        '\'breyes@alpha-sense.com\'',
+        '\'cthompson@alpha-sense.com\'',
+        '\'eblinn@alpha-sense.com\'',
+        '\'hkhan@alpha-sense.com\'',
+        '\'jnemtseva@alpha-sense.com\'',
+        '\'mgiunto@alpha-sense.com\'',
+        '\'mwalker@alpha-sense.com\'',
+        '\'sbrody@alpha-sense.com\'']
+
+    soql = "SELECT Id, Username__c, Status_of_User__c FROM Contact WHERE Username__c IN ("
+    soql += ','.join(email_list) + ')'
+
+    print('Loading Contacts...')
+    contacts = sfdc_clients.simple_client.execute_query(soql)['records']
+
+    for_update = []
+    for c in contacts:
+        payload = {
+            'Id': c['Id'],
+            'Status_of_User__c': 'Inactive'
+        }
+
+        for_update.append(payload)
+
+    print('Updating former users...')
+    sfdc_clients.simple_client.client.bulk.Contact.update(for_update)
+
+    print('Done!')
+
+def update_mtnews_features():
+    soql = "SELECT Id, AS_Premium_News_Content__c, MTNewswireLiveBriefPro_AS__c, MT_Newswires_Premium_Bundle_AS__c"
+    soql += " FROM Contact WHERE AS_Premium_News_Content__c = true AND (MTNewswireLiveBriefPro_AS__c = false OR "
+    soql += " MT_Newswires_Premium_Bundle_AS__c = false)"
+
+    print('Querying for Contacts...')
+    contacts = sfdc_clients.simple_client.execute_query(soql)['records']
+
+    for_update = []
+    for c in contacts:
+        payload = {
+            'Id': c['Id']
+        }
+
+        if not c['MTNewswireLiveBriefPro_AS__c']:
+            payload['MTNewswireLiveBriefPro_AS__c'] = True
+
+        if not c['MT_Newswires_Premium_Bundle_AS__c']:
+            payload['MT_Newswires_Premium_Bundle_AS__c'] = True
+
+        for_update.append(payload)
+
+    print('Submitting Update...')
+    sfdc_clients.bulk_client.send_bulk_update('Contact', for_update)
+
+    print('Done!')
+
+def update_contact_channel_view():
+    soql = "SELECT Id, Alert_New_Template_AS__c FROM Contact WHERE Channel_View__c = false and AccountId != '0013200001I670o'"
+
+    print('Querying for Contacts...')
+    contacts = sfdc_clients.simple_client.execute_query(soql)['records']
+
+    print(f'Contact Count: {len(contacts)}')
+
+    update_list = []
+    for c in contacts:
+        payload = {
+            'Id': c['Id'],
+            'Channel_View__c': True
+        }
+
+        update_list.append(payload)
+
+
+    print('Submitting Update...')
+    sfdc_clients.bulk_client.send_bulk_update('Contact', update_list)
+
+    print('Done!')
+
 def update_contact_alert_new_template():
     soql = "SELECT Id, Alert_New_Template_AS__c FROM Contact WHERE Alert_New_Template_AS__c = false AND Id != '0030d00002Ip1Qa'"
 

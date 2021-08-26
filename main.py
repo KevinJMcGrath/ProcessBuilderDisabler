@@ -51,6 +51,18 @@ def update_contact_usage_limits():
 def update_contact_alert_template():
     contact.update_contact_alert_new_template()
 
+def update_contact_channel_view():
+    contact.update_contact_channel_view()
+
+def update_contact_mtnews_stuff():
+    contact.update_mtnews_features()
+
+def deactivate_former_users():
+    contact.disable_specific_contacts_as()
+
+def inactive_user_check():
+    contact.check_inactive_users_as()
+
 # **************************************
 #               Account
 # **************************************
@@ -102,10 +114,10 @@ def delete_dupe_histories():
     wsi_ud.remove_duplicate_history_records()
 
 if __name__ == '__main__':
-    deactivate_processes('Contact')
+    # deactivate_processes('Contact')
     # deactivate_processes('Opportunity')
 
-    update_contact_alert_template()
+    # deactivate_former_users()
 
     activate_processes('Contact')
     # activate_processes('Opportunity')

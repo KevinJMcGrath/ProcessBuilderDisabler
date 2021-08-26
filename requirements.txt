@@ -1,3 +1,2 @@
-jsonpickle~=1.4.1
-requests~=2.23.0
+jsonpickle
 simple-salesforce
