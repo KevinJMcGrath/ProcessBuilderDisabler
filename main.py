@@ -114,12 +114,14 @@ def delete_dupe_histories():
     wsi_ud.remove_duplicate_history_records()
 
 if __name__ == '__main__':
+    # 2021-09-13 KJM It is no longer necessary to disable PBs for Contacts
+
     # deactivate_processes('Contact')
     # deactivate_processes('Opportunity')
 
-    # deactivate_former_users()
+    deactivate_former_users()
 
-    activate_processes('Contact')
+    # activate_processes('Contact')
     # activate_processes('Opportunity')
 
 
